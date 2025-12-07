@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - IronVault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 flex items-center justify-center h-screen">
+
+    <div class="bg-white p-8 rounded-lg shadow-2xl w-96 border-t-4 border-green-600">
+        <h2 class="text-2xl font-bold text-center text-slate-800 mb-6">Open an Account</h2>
+
+        <form action="/register" method="POST">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:border-green-500" 
+                       name="name" type="text" required>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Email Address</label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:border-green-500" 
+                       name="email" type="email" required>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:border-green-500" 
+                       name="password" type="password" required>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <button class="bg-green-600 hover:bg-green-800 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full transition duration-300" 
+                        type="submit">
+                    Register
+                </button>
+            </div>
+        </form>
+        
+        <p class="text-center text-gray-500 text-xs mt-4">
+            Already have an account? <a href="/login" class="text-green-600 hover:text-green-800">Login here</a>
+        </p>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - IronVault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <nav class="bg-slate-900 p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="text-white font-bold text-xl">
+                IronVault 
+                <span class="text-blue-400">Secure</span>
+                {% if role_id == 1 %}
+                    <span class="ml-2 bg-red-600 text-xs text-white px-2 py-1 rounded-full uppercase">Admin</span>
+                {% elif role_id == 3 %}
+                    <span class="ml-2 bg-purple-600 text-xs text-white px-2 py-1 rounded-full uppercase">Manager</span>
+                {% else %}
+                    <span class="ml-2 bg-blue-600 text-xs text-white px-2 py-1 rounded-full uppercase">Customer</span>
+                {% endif %}
+            </div>
+            <div class="text-white">
+                <span class="mr-4 text-gray-300">Welcome, {{ user_name }}</span>
+                <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-4 rounded transition">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto mt-8 px-4">
+
+        {% if role_id == 1 %}
+        <div class="mb-12 border-4 border-slate-600 rounded-lg p-6 bg-white shadow-xl">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center">
+                🛠️ System User Management
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-200 text-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left">ID</th>
+                            <th class="px-4 py-3 text-left">Name</th>
+                            <th class="px-4 py-3 text-left">Email</th>
+                            <th class="px-4 py-3 text-left">Current Role</th>
+                            <th class="px-4 py-3 text-left">Status</th>
+                            <th class="px-4 py-3 text-left">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-gray-600">
+                        {% for user in admin_users %}
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="px-4 py-3 font-mono">{{ user.UserID }}</td>
+                            <td class="px-4 py-3 font-bold">{{ user.User_Name }}</td>
+                            <td class="px-4 py-3">{{ user.User_Email }}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs font-bold text-white
+                                    {% if user.RoleID == 1 %} bg-red-500
+                                    {% elif user.RoleID == 3 %} bg-purple-500
+                                    {% else %} bg-blue-500 {% endif %}">
+                                    {{ user.Role_Name }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs font-bold text-white
+                                    {% if user.Status == 'Active' or not user.Status %} bg-green-500
+                                    {% else %} bg-gray-500 {% endif %}">
+                                    {{ user.Status if user.Status else 'Active' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <button class="edit-user-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs"
+                                        data-userid="{{ user.UserID }}"
+                                        data-username="{{ user.User_Name }}"
+                                        data-useremail="{{ user.User_Email }}"
+                                        data-roleid="{{ user.RoleID }}"
+                                        data-status="{{ user.Status if user.Status else 'Active' }}">
+                                    ✏️ Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Edit User Modal -->
+        <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-slate-800">Edit User</h3>
+                    <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <form id="editUserForm" action="/update_role" method="POST">
+                    <input type="hidden" id="edit_user_id" name="user_id">
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">User Name</label>
+                        <input type="text" id="edit_user_name" readonly class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 bg-gray-100">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                        <input type="email" id="edit_user_email" readonly class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 bg-gray-100">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Role</label>
+                        <select id="edit_user_role" name="new_role" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none focus:shadow-outline">
+                            <option value="2">Customer</option>
+                            <option value="3">Manager</option>
+                            <option value="1">Admin</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Status</label>
+                        <select id="edit_user_status" name="status" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none focus:shadow-outline">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex gap-2 justify-end">
+                        <button type="button" onclick="closeEditModal()" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="mb-12 border-4 border-red-500 rounded-lg p-6 bg-white shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-red-700 flex items-center">
+                    ⚠️ Security Audit Logs (Top Secret)
+                </h2>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="auditSearch" placeholder="Search logs..." class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="auditTable" class="min-w-full text-sm">
+                    <thead class="bg-red-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(0)">Time ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(1)">User ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(2)">Role ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(3)">Action ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(4)">Status ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider cursor-pointer hover:bg-red-100" onclick="sortTable(5)">IP Address ↕</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-red-900 uppercase tracking-wider">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditTableBody" class="bg-white divide-y divide-gray-200">
+                        {% for log in audit_logs %}
+                        <tr class="hover:bg-red-50 transition">
+                            <td class="px-4 py-3 whitespace-nowrap text-gray-900">{{ log.Action_Date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap font-bold text-gray-900">{{ log.User_Name }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full text-white
+                                    {% if log.Role_Name == 'Admin' %} bg-red-500
+                                    {% elif log.Role_Name == 'Manager' %} bg-purple-500
+                                    {% elif log.Role_Name == 'Customer' %} bg-blue-500
+                                    {% else %} bg-gray-500 {% endif %}">
+                                    {{ log.Role_Name if log.Role_Name else 'N/A' }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full {% if log.Action_Type == 'LOGIN' %}bg-blue-100 text-blue-800{% elif log.Action_Type == 'TRANSFER' %}bg-purple-100 text-purple-800{% elif log.Action_Type == 'DEPOSIT' %}bg-green-100 text-green-800{% elif log.Action_Type == 'DELETE_USER' %}bg-red-100 text-red-800{% elif log.Action_Type == 'USER_UPDATE' or log.Action_Type == 'ROLE_CHANGE' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ log.Action_Type }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full {% if log.Status == 'Success' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ log.Status }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-600">{{ log.IP_Address if log.IP_Address else 'N/A' }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ log.Message }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRows">{{ audit_logs|length }}</span> entries
+                </div>
+                <div class="flex gap-2" id="pagination">
+                    <!-- Pagination buttons will be generated by JavaScript -->
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if role_id == 3 %}
+        <div class="mb-12 border-4 border-purple-500 rounded-lg p-6 bg-white shadow-xl">
+            <h2 class="text-2xl font-bold text-purple-700 mb-4">
+                💼 Manager Overview: All Customer Accounts
+            </h2>
+            <table class="min-w-full bg-white border">
+                <thead>
+                    <tr class="bg-purple-100 text-purple-900 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6 text-left">Customer Name</th>
+                        <th class="py-3 px-6 text-left">Email</th>
+                        <th class="py-3 px-6 text-left">Account Number</th>
+                        <th class="py-3 px-6 text-right">Balance</th>
+                        <th class="py-3 px-6 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600 text-sm font-light">
+                    {% for cust in all_customers %}
+                    <tr class="border-b border-gray-200 hover:bg-purple-50">
+                        <td class="py-3 px-6 text-left whitespace-nowrap font-medium">{{ cust.User_Name }}</td>
+                        <td class="py-3 px-6 text-left">{{ cust.User_Email }}</td>
+                        <td class="py-3 px-6 text-left font-mono">{{ cust.Acc_Number }}</td>
+                        <td class="py-3 px-6 text-right font-bold text-green-600">RM {{ cust.Acc_Balance }}</td>
+                        <td class="py-3 px-6 text-center">
+                            <form class="delete-user-form" data-userid="{{ cust.UserID }}" data-username="{{ cust.User_Name }}" method="POST">
+                                <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if role_id == 2 %}
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-blue-500 pb-2 inline-block">My Accounts</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {% for account in accounts %}
+            <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500 hover:shadow-lg transition">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-gray-600 font-bold uppercase text-sm">Savings Account</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded">Active</span>
+                </div>
+                <div class="text-3xl font-bold text-gray-800 mb-2">RM {{ account.Acc_Balance }}</div>
+                <div class="text-gray-500 text-sm font-mono tracking-widest">Account Number: {{ account.Acc_Number }}</div>
+            </div>
+            {% else %}
+            <div class="text-gray-500">No accounts found.</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if role_id == 2 %}
+        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500 mb-4">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">💸 Make a Transfer</h2>
+            <form action="/transfer" method="POST" class="flex gap-4 items-end">
+                <div class="w-1/2">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Receiver Account Number</label>
+                    <input name="receiver_acc" type="text" placeholder="e.g. 100-3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="w-1/3">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Amount (RM)</label>
+                    <input name="amount" type="number" step="0.01" placeholder="0.00" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-300 h-10">
+                    Send
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-green-500 mb-8 mt-4">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">🏧 ATM Deposit</h2>
+            <form action="/deposit" method="POST" class="flex gap-4 items-end">
+                <div class="w-1/3">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Amount (RM)</label>
+                    <input name="amount" type="number" step="0.01" placeholder="0.00" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <button type="submit" class="bg-green-600 hover:bg-green-800 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-300 h-10">
+                    Deposit Cash
+                </button>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Transaction History</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">From/To</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-blue-900 uppercase tracking-wider">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for trans in transactions %}
+                        <tr class="hover:bg-blue-50 transition">
+                            <td class="px-4 py-3 whitespace-nowrap text-gray-900">
+                                {% if trans.Transaction_Date %}
+                                    {{ trans.Transaction_Date.strftime('%Y-%m-%d %H:%M:%S') if trans.Transaction_Date.strftime else trans.Transaction_Date }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                                    {% if trans.Transaction_Type == 'TRANSFER' %}bg-purple-100 text-purple-800
+                                    {% elif trans.Transaction_Type == 'DEPOSIT' %}bg-green-100 text-green-800
+                                    {% elif trans.Transaction_Type == 'WITHDRAWAL' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ trans.Transaction_Type }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{{ trans.Description if trans.Description else 'N/A' }}</td>
+                            <td class="px-4 py-3 text-gray-600 font-mono text-xs">
+                                {% if trans.Transaction_Type == 'TRANSFER' %}
+                                    {% if trans.Transaction_Direction == 'Debit' %}
+                                        To: {{ trans.ReceiverAccount if trans.ReceiverAccount else 'N/A' }}
+                                    {% else %}
+                                        From: {{ trans.SenderAccount if trans.SenderAccount else 'N/A' }}
+                                    {% endif %}
+                                {% elif trans.Transaction_Type == 'DEPOSIT' %}
+                                    Self Deposit
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-right font-bold 
+                                {% if trans.Transaction_Direction == 'Debit' %}text-red-600
+                                {% else %}text-green-600{% endif %}">
+                                {% if trans.Transaction_Direction == 'Debit' %}-{% else %}+{% endif %}RM {{ trans.Amount }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">No transactions found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <script>
+        // Edit User Modal Functions
+        function openEditModal(userId, userName, userEmail, roleId, status) {
+            document.getElementById('edit_user_id').value = userId;
+            document.getElementById('edit_user_name').value = userName;
+            document.getElementById('edit_user_email').value = userEmail;
+            document.getElementById('edit_user_role').value = roleId;
+            document.getElementById('edit_user_status').value = status || 'Active';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        // Handle delete user forms
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle Edit User buttons
+            const editButtons = document.querySelectorAll('.edit-user-btn');
+            editButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-userid');
+                    const userName = this.getAttribute('data-username');
+                    const userEmail = this.getAttribute('data-useremail');
+                    const roleId = this.getAttribute('data-roleid');
+                    const status = this.getAttribute('data-status');
+                    openEditModal(userId, userName, userEmail, roleId, status);
+                });
+            });
+
+            // Close modal when clicking outside
+            const editModal = document.getElementById('editModal');
+            if (editModal) {
+                editModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeEditModal();
+                    }
+                });
+            }
+            
+            const deleteForms = document.querySelectorAll('.delete-user-form');
+            
+            deleteForms.forEach(form => {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const userId = this.getAttribute('data-userid');
+                    const userName = this.getAttribute('data-username');
+                    
+                    if (!userId) {
+                        alert('Error: User ID not found!');
+                        console.error('UserID is missing:', this);
+                        return;
+                    }
+                    
+                    const confirmed = confirm(`Are you sure you want to delete user "${userName}" (ID: ${userId})?`);
+                    if (!confirmed) {
+                        return;
+                    }
+                    
+                    const button = this.querySelector('button');
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = 'Deleting...';
+                    button.classList.add('opacity-50');
+                    
+                    try {
+                        const response = await fetch(`/delete_user/${userId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            }
+                        });
+                        
+                        if (response.ok || response.redirected) {
+                            alert('User deleted successfully!');
+                            window.location.reload();
+                        } else {
+                            const text = await response.text();
+                            alert('Error deleting user. Check console for details.');
+                            console.error('Delete failed:', response.status, text);
+                            button.disabled = false;
+                            button.textContent = originalText;
+                            button.classList.remove('opacity-50');
+                        }
+                    } catch (error) {
+                        alert('Error deleting user: ' + error.message);
+                        console.error('Delete error:', error);
+                        button.disabled = false;
+                        button.textContent = originalText;
+                        button.classList.remove('opacity-50');
+                    }
+                });
+            });
+
+            // Audit Log Table Functionality
+            const auditTable = document.getElementById('auditTable');
+            if (auditTable) {
+                let currentPage = 1;
+                const rowsPerPage = 5;
+                let allRows = Array.from(document.querySelectorAll('#auditTableBody tr'));
+                let filteredRows = allRows;
+                let sortColumn = -1;
+                let sortDirection = 'asc';
+
+                // Search functionality
+                const searchInput = document.getElementById('auditSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('input', function() {
+                        const searchTerm = this.value.toLowerCase();
+                        filteredRows = allRows.filter(row => {
+                            const text = row.textContent.toLowerCase();
+                            return text.includes(searchTerm);
+                        });
+                        currentPage = 1;
+                        renderTable();
+                    });
+                }
+
+                // Sort functionality
+                window.sortTable = function(columnIndex) {
+                    if (sortColumn === columnIndex) {
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortColumn = columnIndex;
+                        sortDirection = 'asc';
+                    }
+
+                    filteredRows.sort((a, b) => {
+                        const aText = a.cells[columnIndex].textContent.trim();
+                        const bText = b.cells[columnIndex].textContent.trim();
+                        
+                        // Try to parse as date
+                        const aDate = new Date(aText);
+                        const bDate = new Date(bText);
+                        if (!isNaN(aDate) && !isNaN(bDate)) {
+                            return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+                        }
+                        
+                        // String comparison
+                        if (sortDirection === 'asc') {
+                            return aText.localeCompare(bText);
+                        } else {
+                            return bText.localeCompare(aText);
+                        }
+                    });
+
+                    currentPage = 1;
+                    renderTable();
+                };
+
+                // Render table with pagination
+                function renderTable() {
+                    const tbody = document.getElementById('auditTableBody');
+                    tbody.innerHTML = '';
+
+                    const start = (currentPage - 1) * rowsPerPage;
+                    const end = start + rowsPerPage;
+                    const pageRows = filteredRows.slice(start, end);
+
+                    pageRows.forEach(row => tbody.appendChild(row.cloneNode(true)));
+
+                    // Update pagination info
+                    document.getElementById('showingStart').textContent = filteredRows.length === 0 ? 0 : start + 1;
+                    document.getElementById('showingEnd').textContent = Math.min(end, filteredRows.length);
+                    document.getElementById('totalRows').textContent = filteredRows.length;
+
+                    // Render pagination buttons
+                    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+                    const paginationDiv = document.getElementById('pagination');
+                    paginationDiv.innerHTML = '';
+
+                    if (totalPages > 1) {
+                        // Previous button
+                        const prevBtn = document.createElement('button');
+                        prevBtn.className = `px-3 py-1 rounded ${currentPage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`;
+                        prevBtn.textContent = '‹';
+                        prevBtn.disabled = currentPage === 1;
+                        prevBtn.onclick = () => {
+                            if (currentPage > 1) {
+                                currentPage--;
+                                renderTable();
+                            }
+                        };
+                        paginationDiv.appendChild(prevBtn);
+
+                        // Page number buttons
+                        for (let i = 1; i <= totalPages; i++) {
+                            if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                                const pageBtn = document.createElement('button');
+                                pageBtn.className = `px-3 py-1 rounded mx-1 ${i === currentPage ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
+                                pageBtn.textContent = i;
+                                pageBtn.onclick = () => {
+                                    currentPage = i;
+                                    renderTable();
+                                };
+                                paginationDiv.appendChild(pageBtn);
+                            } else if (i === currentPage - 3 || i === currentPage + 3) {
+                                const ellipsis = document.createElement('span');
+                                ellipsis.className = 'px-2 text-gray-500';
+                                ellipsis.textContent = '...';
+                                paginationDiv.appendChild(ellipsis);
+                            }
+                        }
+
+                        // Next button
+                        const nextBtn = document.createElement('button');
+                        nextBtn.className = `px-3 py-1 rounded ${currentPage === totalPages ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`;
+                        nextBtn.textContent = '›';
+                        nextBtn.disabled = currentPage === totalPages;
+                        nextBtn.onclick = () => {
+                            if (currentPage < totalPages) {
+                                currentPage++;
+                                renderTable();
+                            }
+                        };
+                        paginationDiv.appendChild(nextBtn);
+                    }
+                }
+
+                // Initial render
+                renderTable();
+            }
+        });
+    </script>
+</body>
+</html>
