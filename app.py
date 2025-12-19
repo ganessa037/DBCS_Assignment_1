@@ -2,18 +2,32 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import pyodbc
 import hashlib
 import os
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_ironvault'  # Required for session management
 
+# Prevent browser from caching pages (security: stops back button after logout)
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+# Brute force protection - track failed login attempts
+failed_attempts = {}  # {email: {'count': 0, 'lockout_until': None}}
+MAX_ATTEMPTS = 5
+LOCKOUT_MINUTES = 5
+
 # --- DATABASE CONFIGURATION ---
 # UPDATE THIS with your actual server name!
-SERVER_NAME = 'localhost\SQLEXPRESS'  # Or your specific server name e.g., 'WIN-SERVER\SQLEXPRESS'
+SERVER_NAME = 'localhost'  # SQL Server Developer Edition (default instance)
 DATABASE_NAME = 'IronVaultDB'
 
 def get_db_connection():
     conn_str = (
-        f'DRIVER={{SQL Server}};'
+        f'DRIVER={{ODBC Driver 17 for SQL Server}};' # this is the driver for the SQL Server, this is required to connect to the SQL Server
         f'SERVER={SERVER_NAME};'
         f'DATABASE={DATABASE_NAME};'
         f'Trusted_Connection=yes;'
@@ -70,6 +84,17 @@ def login():
     if request.method == 'POST':
         email = request.form['email']
         password_input = request.form['password']
+        
+        # Check if account is locked
+        if email in failed_attempts:
+            lockout_until = failed_attempts[email].get('lockout_until')
+            if lockout_until and datetime.now() < lockout_until:
+                remaining = (lockout_until - datetime.now()).seconds // 60 + 1
+                flash(f"Account locked. Try again in {remaining} minute(s).", "error")
+                return render_template('login.html')
+            elif lockout_until and datetime.now() >= lockout_until:
+                # Reset after lockout expires
+                failed_attempts[email] = {'count': 0, 'lockout_until': None}
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -87,6 +112,10 @@ def login():
             
             # 3. Compare: Does the new smoothie match the stored smoothie?
             if input_hash == stored_hash:
+                # Reset failed attempts on successful login
+                if email in failed_attempts:
+                    del failed_attempts[email]
+                
                 session['user_id'] = user.UserID
                 session['user_name'] = user.User_Name
                 session['role_id'] = user.RoleID
@@ -112,9 +141,19 @@ def login():
                 
                 return redirect(url_for('dashboard'))
             else:
-                flash("Invalid Password!")
+                # Track failed attempt
+                if email not in failed_attempts:
+                    failed_attempts[email] = {'count': 0, 'lockout_until': None}
+                failed_attempts[email]['count'] += 1
+                
+                attempts_left = MAX_ATTEMPTS - failed_attempts[email]['count']
+                if attempts_left <= 0:
+                    failed_attempts[email]['lockout_until'] = datetime.now() + timedelta(minutes=LOCKOUT_MINUTES)
+                    flash(f"Too many failed attempts. Account locked for {LOCKOUT_MINUTES} minutes.", "error")
+                else:
+                    flash(f"Invalid Password! {attempts_left} attempt(s) remaining.", "error")
         else:
-            flash("User not found!")
+            flash("User not found!", "error")
             
         conn.close()
         
@@ -246,9 +285,35 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
+        name = request.form['name'].strip()
+        email = request.form['email'].strip()
         password = request.form['password']
+        
+        # Email validation
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            flash("Please enter a valid email address.", "error")
+            return render_template('register.html')
+        
+        # Name validation
+        if len(name) < 2:
+            flash("Name must be at least 2 characters.", "error")
+            return render_template('register.html')
+        
+        # Password validation
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.", "error")
+            return render_template('register.html')
+        if not any(c.isalpha() for c in password):
+            flash("Password must contain at least one letter.", "error")
+            return render_template('register.html')
+        if not any(c.isdigit() for c in password):
+            flash("Password must contain at least one number.", "error")
+            return render_template('register.html')
+        if not any(c in "!@#$%^&*()_+-=[]{}|;:',.<>?/" for c in password):
+            flash("Password must contain at least one special character.", "error")
+            return render_template('register.html')
         
         # SECURITY: Create a unique Salt and Hash
         new_salt = generate_salt()
@@ -258,6 +323,12 @@ def register():
         cursor = conn.cursor()
         
         try:
+            # Check if email already exists
+            cursor.execute("SELECT UserID FROM [User] WHERE User_Email = ?", (email,))
+            if cursor.fetchone():
+                flash("This email is already registered. Please use a different email or login.", "error")
+                return render_template('register.html')
+            
             # Default Role = 2 (Customer)
             cursor.execute("""
                 INSERT INTO [User] (User_Name, User_Email, User_PasswordHash, User_Salt, RoleID)
@@ -274,10 +345,10 @@ def register():
             """, (new_user_id, new_user_id)) # Simple logic for Acc Number
             
             conn.commit()
-            flash("Registration Successful! Please Login.")
+            flash("Registration Successful! Please Login.", "success")
             return redirect(url_for('login'))
         except Exception as e:
-            flash(f"Error: {e}")
+            flash("Registration failed. Please try again later.", "error")
         finally:
             conn.close()
 
@@ -286,7 +357,7 @@ def register():
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     if 'role_id' not in session or session['role_id'] != 3: # Only Manager can delete
-        flash("Unauthorized Action!")
+        flash("Unauthorized Action!", "error")
         return redirect(url_for('dashboard'))
     
     conn = get_db_connection()
@@ -297,7 +368,7 @@ def delete_user(user_id):
         cursor.execute("SELECT UserID, User_Name FROM [User] WHERE UserID = ?", (user_id,))
         user_check = cursor.fetchone()
         if not user_check:
-            flash(f"User ID {user_id} not found!")
+            flash(f"User ID {user_id} not found!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -321,7 +392,7 @@ def delete_user(user_id):
         user_deleted = cursor.rowcount
         
         if user_deleted == 0:
-            flash(f"Failed to delete user ID {user_id}. User may not exist.")
+            flash(f"Failed to delete user ID {user_id}. User may not exist.", "error")
             conn.rollback()
             conn.close()
             return redirect(url_for('dashboard'))
@@ -340,11 +411,11 @@ def delete_user(user_id):
         except Exception as log_error:
             print(f"Warning: Could not log audit entry: {log_error}")
         
-        flash(f"User deleted successfully! (Deleted {user_deleted} user, {accounts_deleted} accounts, {trans_deleted} transactions)")
+        flash(f"User deleted successfully!", "success")
     except Exception as e:
         conn.rollback()
         error_msg = str(e)
-        flash(f"Error deleting user: {error_msg}")
+        flash("Failed to delete user. Please try again.", "error")
         print(f"Delete error: {error_msg}")  # Debug output
     finally:
         conn.close()
@@ -358,7 +429,7 @@ def transfer():
     
     # Only customers can transfer
     if session.get('role_id') != 2:
-        flash("Unauthorized: Only customers can transfer money!")
+        flash("Unauthorized: Only customers can transfer money!", "error")
         return redirect(url_for('dashboard'))
     
     sender_id = session['user_id']
@@ -367,16 +438,16 @@ def transfer():
     
     # Validation
     if not receiver_acc_num:
-        flash("Receiver Account Number is required!")
+        flash("Receiver Account Number is required!", "error")
         return redirect(url_for('dashboard'))
     
     try:
         amount = float(amount_str)
         if amount <= 0:
-            flash("Amount must be greater than 0!")
+            flash("Amount must be greater than 0!", "error")
             return redirect(url_for('dashboard'))
     except ValueError:
-        flash("Invalid amount format!")
+        flash("Invalid amount format!", "error")
         return redirect(url_for('dashboard'))
     
     conn = get_db_connection()
@@ -388,7 +459,7 @@ def transfer():
         sender_acc = cursor.fetchone()
         
         if not sender_acc:
-            flash("Sender account not found!")
+            flash("Sender account not found!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -397,7 +468,7 @@ def transfer():
         sender_balance = float(sender_acc[1])
         
         if sender_balance < amount:
-            flash(f"Insufficient Funds! Your balance is RM {sender_balance:.2f}")
+            flash(f"Insufficient Funds! Your balance is RM {sender_balance:.2f}", "error")
             conn.close()
             return redirect(url_for('dashboard'))
             
@@ -406,7 +477,7 @@ def transfer():
         receiver_acc = cursor.fetchone()
         
         if not receiver_acc:
-            flash(f"Receiver Account '{receiver_acc_num}' Not Found!")
+            flash(f"Receiver Account '{receiver_acc_num}' Not Found!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -415,7 +486,7 @@ def transfer():
         
         # Prevent self-transfer
         if sender_account_id == receiver_account_id:
-            flash("Cannot transfer to the same account!")
+            flash("Cannot transfer to the same account!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
 
@@ -441,12 +512,12 @@ def transfer():
         """, (sender_id, session['user_name'], role_name, f'Transferred RM {amount:.2f} to account {receiver_acc_num}', ip_address))
         
         conn.commit()
-        flash(f"Successfully transferred RM {amount:.2f} to account {receiver_acc_num}!")
+        flash(f"Successfully transferred RM {amount:.2f} to account {receiver_acc_num}!", "success")
         
     except Exception as e:
         conn.rollback()
         error_msg = str(e)
-        flash(f"Transfer Failed: {error_msg}")
+        flash("Transfer failed. Please try again.", "error")
         print(f"Transfer error: {error_msg}")  # Debug output
         
         # Log failed transfer attempt
@@ -472,7 +543,7 @@ def deposit():
     
     # Only customers can deposit
     if session.get('role_id') != 2:
-        flash("Unauthorized: Only customers can make deposits!")
+        flash("Unauthorized: Only customers can make deposits!", "error")
         return redirect(url_for('dashboard'))
     
     amount_str = request.form.get('amount', '').strip()
@@ -481,10 +552,10 @@ def deposit():
     try:
         amount = float(amount_str)
         if amount <= 0:
-            flash("Amount must be greater than 0!")
+            flash("Amount must be greater than 0!", "error")
             return redirect(url_for('dashboard'))
     except ValueError:
-        flash("Invalid amount format!")
+        flash("Invalid amount format!", "error")
         return redirect(url_for('dashboard'))
     
     conn = get_db_connection()
@@ -496,7 +567,7 @@ def deposit():
         account = cursor.fetchone()
         
         if not account:
-            flash("Account not found!")
+            flash("Account not found!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -521,12 +592,12 @@ def deposit():
         """, (session['user_id'], session['user_name'], role_name, f'Deposited RM {amount:.2f}', ip_address))
         
         conn.commit()
-        flash(f"Successfully deposited RM {amount:.2f}!")
+        flash(f"Successfully deposited RM {amount:.2f}!", "success")
         
     except Exception as e:
         conn.rollback()
         error_msg = str(e)
-        flash(f"Deposit Failed: {error_msg}")
+        flash("Deposit failed. Please try again.", "error")
         print(f"Deposit error: {error_msg}")  # Debug output
         
         # Log failed deposit attempt
@@ -548,7 +619,7 @@ def deposit():
 @app.route('/update_role', methods=['POST'])
 def update_role():
     if 'role_id' not in session or session['role_id'] != 1:  # Strict Admin Check
-        flash("Unauthorized!")
+        flash("Unauthorized!", "error")
         return redirect(url_for('dashboard'))
     
     target_user_id = request.form.get('user_id')
@@ -556,7 +627,7 @@ def update_role():
     new_status = request.form.get('status', 'Active')
     
     if not target_user_id or not new_role_id:
-        flash("Missing required fields!")
+        flash("Missing required fields!", "error")
         return redirect(url_for('dashboard'))
     
     conn = get_db_connection()
@@ -568,7 +639,7 @@ def update_role():
         user_check = cursor.fetchone()
         
         if not user_check:
-            flash(f"User ID {target_user_id} not found!")
+            flash(f"User ID {target_user_id} not found!", "error")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -592,7 +663,7 @@ def update_role():
             pass
         
         if not changes:
-            flash("No changes made!")
+            flash("No changes made!", "info")
             conn.close()
             return redirect(url_for('dashboard'))
         
@@ -609,12 +680,12 @@ def update_role():
         """, (session['user_id'], session['user_name'], role_name, f"Updated User {target_user_id}: {changes_msg}", ip_address))
         
         conn.commit()
-        flash(f"User updated successfully! ({changes_msg})")
+        flash(f"User updated successfully!", "success")
         
     except Exception as e:
         conn.rollback()
         error_msg = str(e)
-        flash(f"Error updating user: {error_msg}")
+        flash("Failed to update user. Please try again.", "error")
         print(f"Update user error: {error_msg}")  # Debug output
     finally:
         conn.close()
