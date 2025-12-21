@@ -1,4 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf import CSRFProtect
 import pyodbc
 import hashlib
 import os
@@ -7,13 +10,39 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_ironvault'  # Required for session management
 
-# Prevent browser from caching pages (security: stops back button after logout)
+# add limiter
+limiter = Limiter(
+    key_func= get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+limiter.init_app(app)
+csrf = CSRFProtect(app)
+
+# security: stops back button after logout
 @app.after_request
-def add_no_cache_headers(response):
+def add_security_headers(response):
+    # cache control headers
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+
+    # X-Frame-Options header to prevent clickjacking
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+
+    # remove server printing
+    response.headers.pop('Server', None)
+
+    # enable HSTS if HTTPS is used
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
     return response
+
+@app.errorhandler(400)
+def handle_csrf_error(e):
+    return render_template('csrf_error.html', message="CSRF token missing or invalid."), 40
 
 # Brute force protection - track failed login attempts
 failed_attempts = {}  # {email: {'count': 0, 'lockout_until': None}}
@@ -80,6 +109,7 @@ def home():
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if request.method == 'POST':
         email = request.form['email']
@@ -283,37 +313,40 @@ def logout():
 
 # --- REGISTRATION (To create users with Salts) ---
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("3 per 5 minutes")
 def register():
     if request.method == 'POST':
         name = request.form['name'].strip()
         email = request.form['email'].strip()
         password = request.form['password']
+        errors = [] # list of errors
         
         # Email validation
         import re
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, email):
-            flash("Please enter a valid email address.", "error")
-            return render_template('register.html')
+            errors.append("Please enter a valid email address.")
         
         # Name validation
         if len(name) < 2:
-            flash("Name must be at least 2 characters.", "error")
-            return render_template('register.html')
+            errors.append("Name must be at least 2 characters.")
         
         # Password validation
         if len(password) < 8:
-            flash("Password must be at least 8 characters.", "error")
-            return render_template('register.html')
+            errors.append("Password must be at least 8 characters long.")
         if not any(c.isalpha() for c in password):
-            flash("Password must contain at least one letter.", "error")
-            return render_template('register.html')
+            errors.append("Password must contain at least one letter.")
         if not any(c.isdigit() for c in password):
-            flash("Password must contain at least one number.", "error")
-            return render_template('register.html')
+            errors.append("Password must contain at least one number.")
         if not any(c in "!@#$%^&*()_+-=[]{}|;:',.<>?/" for c in password):
-            flash("Password must contain at least one special character.", "error")
+            errors.append("Password must contain at least one special character.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
             return render_template('register.html')
+        
+        
         
         # SECURITY: Create a unique Salt and Hash
         new_salt = generate_salt()
@@ -423,6 +456,7 @@ def delete_user(user_id):
     return redirect(url_for('dashboard'))
 
 @app.route('/transfer', methods=['POST'])
+@limiter.limit("10 per minute")
 def transfer():
     if 'user_id' not in session:
         return redirect(url_for('login'))
@@ -537,6 +571,7 @@ def transfer():
     return redirect(url_for('dashboard'))
 
 @app.route('/deposit', methods=['POST'])
+@limiter.limit("10 per minute")
 def deposit():
     if 'user_id' not in session:
         return redirect(url_for('login'))
