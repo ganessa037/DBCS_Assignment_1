@@ -26,13 +26,31 @@ SERVER_NAME = 'localhost'  # SQL Server Developer Edition (default instance)
 DATABASE_NAME = 'IronVaultDB'
 
 def get_db_connection():
+    """
+    Get database connection with encryption enabled.
+    Also sets RLS session context if user is logged in.
+    """
     conn_str = (
         f'DRIVER={{ODBC Driver 17 for SQL Server}};' # this is the driver for the SQL Server, this is required to connect to the SQL Server
         f'SERVER={SERVER_NAME};'
         f'DATABASE={DATABASE_NAME};'
         f'Trusted_Connection=yes;'
+        f'Encrypt=yes;'  # Enable SSL/TLS encryption in transit
     )
-    return pyodbc.connect(conn_str)
+    conn = pyodbc.connect(conn_str)
+    
+    # SECURITY: Set RLS session context if user is logged in
+    # This enables Row-Level Security to automatically filter rows
+    if 'user_id' in session and 'role_id' in session:
+        try:
+            cursor = conn.cursor()
+            set_rls_session_context(cursor, session['user_id'], session['role_id'])
+            cursor.close()
+        except:
+            # If RLS is not configured, continue without it
+            pass
+    
+    return conn
 
 # --- SECURITY FUNCTIONS (The "Salt" Magic) ---
 
@@ -72,6 +90,20 @@ def get_user_role_name(cursor, user_id):
         return result[0] if result else None
     except:
         return None
+
+def set_rls_session_context(cursor, user_id, role_id):
+    """
+    Set session context for Row-Level Security (RLS)
+    This tells SQL Server who the current user is so RLS can filter rows automatically
+    """
+    try:
+        cursor.execute("EXEC sp_set_session_context @key = 'user_id', @value = ?", (user_id,))
+        cursor.execute("EXEC sp_set_session_context @key = 'role_id', @value = ?", (role_id,))
+    except Exception as e:
+        # If RLS is not configured, this will fail silently
+        # This allows the app to work even if RLS scripts haven't been run yet
+        print(f"RLS session context not set (this is OK if RLS is not configured): {e}")
+        pass
 
 # --- ROUTES ---
 
@@ -119,6 +151,10 @@ def login():
                 session['user_id'] = user.UserID
                 session['user_name'] = user.User_Name
                 session['role_id'] = user.RoleID
+                
+                # SECURITY: Set RLS session context for Row-Level Security
+                # This allows SQL Server to automatically filter rows based on user
+                set_rls_session_context(cursor, user.UserID, user.RoleID)
                 
                 # Update last_login timestamp
                 try:
