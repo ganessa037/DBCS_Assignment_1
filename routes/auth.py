@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from utils.validation import validate_email, validate_name, validate_password
 from utils.security import hash_password, generate_salt, get_client_ip
-from database import get_db_connection, get_user_role_name
+from database import get_db_connection, get_user_role_name, set_rls_session_context, clear_rls_session_context
 from datetime import datetime, timedelta
 from extensions import limiter
 
@@ -51,6 +51,8 @@ def login():
                 session['user_id'] = user.UserID
                 session['user_name'] = user.User_Name
                 session['role_id'] = user.RoleID
+
+                set_rls_session_context(cursor, user.UserID, user.RoleID)
 
                 # Update last_login timestamp
                 ip_address = get_client_ip()
@@ -127,5 +129,15 @@ def register():
 
 @auth_bp.route('/logout')
 def logout():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        clear_rls_session_context(cursor)
+        conn.commit() 
+    finally:
+        cursor.close()
+        conn.close()
+    
     session.clear()
     return redirect(url_for('auth.login'))
