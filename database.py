@@ -6,8 +6,11 @@ def get_db_connection():
         f'DRIVER={{ODBC Driver 17 for SQL Server}};' # this is the driver for the SQL Server, this is required to connect to the SQL Server
         f'SERVER={current_app.config['SERVER_NAME']};'
         f'DATABASE={current_app.config['DATABASE_NAME']};'
+        f'UID={current_app.config['USERNAME']};'
+        f'PWD={current_app.config['DB_PASSWORD']};'
         f'Trusted_Connection=yes;'
     )
+
     return pyodbc.connect(conn_str)
 
 def get_user_role_name(cursor, user_id):

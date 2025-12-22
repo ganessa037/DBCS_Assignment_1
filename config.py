@@ -7,6 +7,8 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY')
     SERVER_NAME = os.getenv('SERVER_NAME')
     DATABASE_NAME = os.getenv('DATABASE_NAME')
+    USERNAME = os.getenv("USERNAME")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
 
     # flask-limiters
     RATELIMIT_DEFAULT = "200 per day;50 per hour"

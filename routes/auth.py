@@ -36,7 +36,7 @@ def login():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT UserID, User_Name, User_PasswordHash, User_Salt, RoleID FROM [User] WHERE User_Email = ?", (email,))
+        cursor.execute("EXEC dbo.sp_GetUserByEmail @Email = ?", (email,))
         user = cursor.fetchone()
 
         if user:
@@ -53,21 +53,8 @@ def login():
                 session['role_id'] = user.RoleID
 
                 # Update last_login timestamp
-                try:
-                    cursor.execute("UPDATE [User] SET Last_Login = GETDATE() WHERE UserID = ?", (user.UserID,))
-                except:
-                    # If Last_Login column doesn't exist or has different name, try alternatives
-                    try:
-                        cursor.execute("UPDATE [User] SET last_login = GETDATE() WHERE UserID = ?", (user.UserID,))
-                    except:
-                        pass  # Column might not exist, skip silently
-
-                role_name = get_user_role_name(cursor, user.UserID)
                 ip_address = get_client_ip()
-                cursor.execute("""
-                    INSERT INTO Audit_Log (UserID, User_Name, Role_Name, Action_Type, Status, Message, IP_Address)
-                    VALUES (?, ?, ?, 'LOGIN', 'Success', 'User logged in successfully', ?)
-                """, (user.UserID, user.User_Name, role_name, ip_address))
+                cursor.execute("EXEC sp_UserLogin ?, ?", (user.UserID, ip_address))
                 conn.commit()
             
                 return redirect(url_for('main.dashboard'))
@@ -115,32 +102,24 @@ def register():
         cursor = conn.cursor()
 
         try:
-            # Check if email already exists
-            cursor.execute("SELECT UserID FROM [User] WHERE User_Email = ?", (email,))
-            if cursor.fetchone():
-                flash("This email is already registered. Please use a different email or login.", "error")
-                return render_template('register.html')
-            
-            # Default Role = 2 (Customer)
+
+            # use procedure, create user account, with bank account
             cursor.execute("""
-                INSERT INTO [User] (User_Name, User_Email, User_PasswordHash, User_Salt, RoleID)
-                VALUES (?, ?, ?, ?, 2)
+                EXEC dbo.sp_CreateAccount
+                    @UserName = ?,
+                    @Email = ?,
+                    @PasswordHash = ?,
+                    @Salt = ?,
+                    @RoleID = 2
             """, (name, email, new_hash, new_salt))
-
-            # Create account
-            cursor.execute("SELECT @@IDENTITY") # Get the new UserID
-            new_user_id = cursor.fetchone()[0]
-
-            cursor.execute("""
-                INSERT INTO Account (UserID, Acc_Number, Acc_Balance)
-                VALUES (?, '100-' + CAST(? AS VARCHAR), 0.00)
-            """, (new_user_id, new_user_id)) # Simple logic for Acc Number
 
             conn.commit()
             flash("Registration Successful! Please Login.", "success")
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
+        
         except Exception as e:
-            flash("Registration failed. Please try again later.", "error")
+            flash(str(e), "error") # show message returned by the procedure
+
         finally:
             conn.close()
 
