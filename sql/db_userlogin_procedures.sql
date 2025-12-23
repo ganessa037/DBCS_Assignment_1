@@ -33,7 +33,7 @@ BEGIN
         (UserID, User_Name, Role_Name, Action_Type, Status, Message, IP_Address)
     VALUES
         (@UserID, @UserName, @RoleName, 'LOGIN', 'Success', 'User logged in successfully', @IP_Address);
-END
+END;
 
 -- to execute
 EXEC sp_UserLogin 1, '169.7.205.27';

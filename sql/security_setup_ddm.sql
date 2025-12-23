@@ -11,8 +11,7 @@ GO
 
 -- shows first and last letter of the name, mask the middle
 ALTER TABLE [User]
-ALTER COLUMN User_Name 
-ADD MASKED WITH (FUNCTION = 'partial(1,"XXXX",1)');
+ALTER COLUMN User_Name ADD MASKED WITH (FUNCTION = 'partial(2,"****",0)');
 GO
 
 -- use default timestamp
@@ -29,7 +28,8 @@ ALTER COLUMN Amount ADD MASKED WITH (FUNCTION = 'default()');
 
 -- step 4: add masking to application_audit_log table
 ALTER TABLE Application_Audit_Log
-ALTER COLUMN IP_Address ADD MASKED WITH (FUNCTION = 'default()');
+ALTER COLUMN IP_Address ADD MASKED WITH (FUNCTION = 'partial(10,"xxx",0)');
+
 
 -- unmask for db admin and dev
 GRANT UNMASK TO db_dba;

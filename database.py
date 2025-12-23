@@ -8,8 +8,8 @@ def get_db_connection():
         f'DATABASE={current_app.config['DATABASE_NAME']};'
         f'UID={current_app.config['USERNAME']};'
         f'PWD={current_app.config['DB_PASSWORD']};'
-        f'Trusted_Connection=yes;'
-        f'Encrypt=yes;'  # Enable SSL/TLS encryption in transit
+        'TrustServerCertificate=yes;'
+        'Encrypt=yes;'  # Enable SSL/TLS encryption in transit
     )
     conn = pyodbc.connect(conn_str)
     
@@ -46,8 +46,8 @@ def set_rls_session_context(cursor, user_id, role_id):
     This tells SQL Server who the current user is so RLS can filter rows automatically
     """
     try:
-        cursor.execute("EXEC sp_set_session_context @key = 'user_id', @value = ?", (user_id,))
-        cursor.execute("EXEC sp_set_session_context @key = 'role_id', @value = ?", (role_id,))
+        cursor.execute("EXEC sp_set_session_context @key = N'user_id', @value = ?", (user_id,))
+        cursor.execute("EXEC sp_set_session_context @key = N'role_id', @value = ?", (role_id,))
     except Exception as e:
         # If RLS is not configured, this will fail silently
         # This allows the app to work even if RLS scripts haven't been run yet
@@ -60,10 +60,10 @@ def clear_rls_session_context(cursor):
     """
     try:
         cursor.execute(
-            "EXEC sp_set_session_context @key = 'user_id', @value = NULL"
+            "EXEC sp_set_session_context @key = N'user_id', @value = NULL"
         )
         cursor.execute(
-            "EXEC sp_set_session_context @key = 'role_id', @value = NULL"
+            "EXEC sp_set_session_context @key = N'role_id', @value = NULL"
         )
     except Exception as e:
         print(f"RLS session context not cleared (safe to ignore): {e}")

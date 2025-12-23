@@ -11,10 +11,13 @@ def dashboard():
     cursor = conn.cursor()
     
     role_id = session['role_id']
+    user_id = session['user_id']
     
     # CUSTOMER DATA (Everyone gets this)
     cursor.execute("EXEC dbo.sp_GetAccountsByUser @UserID = ?", (user_id,))
     my_accounts = [dict(zip([column[0] for column in cursor.description], row)) for row in cursor.fetchall()]
+    if my_accounts:
+        user_name = my_accounts[0]['User_Name']
     
     user_id = session['user_id']
     cursor.execute("EXEC dbo.sp_GetTransactionsByUser @UserID = ?", (user_id,))
@@ -49,7 +52,7 @@ def dashboard():
     conn.close()
     
     return render_template('dashboard.html', 
-                           user_name=session['user_name'], 
+                           user_name=user_name, 
                            role_id=role_id,
                            accounts=my_accounts, 
                            transactions=my_transactions,

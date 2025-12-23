@@ -6,7 +6,7 @@ from utils.security import get_client_ip
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
-@role_required(3)
+@role_required(1)
 def delete_user(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()

@@ -13,6 +13,10 @@ CREATE USER ironvault_auditor_user FOR LOGIN ironvault_auditor_login;
 CREATE USER ironvault_app_user FOR LOGIN ironvault_app_login; -- establish connection with application using this account
 CREATE USER ironvault_dev_user FOR LOGIN ironvault_dev_login;
 
+CREATE USER auth_service WITHOUT LOGIN;
+CREATE USER transaction_service WITHOUT LOGIN;
+
+
 -- create database roles
 CREATE ROLE db_dba;
 CREATE ROLE db_app_service;
@@ -24,6 +28,21 @@ ALTER ROLE db_dba ADD MEMBER ironvault_dba_user;
 ALTER ROLE db_app_service ADD MEMBER ironvault_app_user;
 ALTER ROLE db_auditor ADD MEMBER ironvault_auditor_user;
 ALTER ROLE db_developer ADD MEMBER ironvault_dev_user;
+
+CREATE ROLE db_service_account;
+ALTER ROLE db_service_account ADD MEMBER auth_service;
+ALTER ROLE db_service_account ADD MEMBER transaction_service;
+
+GRANT SELECT, UPDATE ON dbo.Account TO transaction_service;
+GRANT SELECT, INSERT ON dbo.[Transaction] TO transaction_service;
+GRANT SELECT ON dbo.[User] TO transaction_service;
+GRANT SELECT ON dbo.Role TO transaction_service;
+GRANT INSERT ON dbo.Application_Audit_Log TO transaction_service;
+GRANT SELECT ON dbo.vw_Account TO transaction_service;
+GRANT UNMASK TO transaction_service;
+GRANT SELECT ON dbo.vw_Account TO transaction_service;
+GRANT VIEW DEFINITION ON SYMMETRIC KEY::IronVaultSymKey TO transaction_service;
+GRANT CONTROL ON CERTIFICATE::IronVaultCert TO transaction_service;
 
 -- grant permissions
 GRANT CONTROL ON DATABASE::IronVaultDB TO db_dba; -- full schema, table, audit management
@@ -51,7 +70,10 @@ GRANT EXECUTE ON dbo.sp_GetTransactionsByUser TO db_app_service;
 GRANT EXECUTE ON dbo.sp_GetAllCustomerAccounts TO db_app_service;
 GRANT EXECUTE ON dbo.sp_GetAllUsers TO db_app_service;
 GRANT EXECUTE ON dbo.sp_GetAuditLogs TO db_app_service;
-
+GRANT EXECUTE ON dbo.sp_GetUserById TO db_app_service;
+GRANT CONTROL ON SYMMETRIC KEY::IronVaultSymKey TO db_app_service;
+GRANT CONTROL ON CERTIFICATE::IronVaultCert TO db_app_service;
+GRANT SELECT ON OBJECT::dbo.vw_Account TO db_app_service;
 
 GRANT SELECT ON dbo.[User] TO db_auditor;
 GRANT SELECT ON dbo.Account TO db_auditor;
@@ -61,3 +83,4 @@ DENY INSERT, UPDATE, DELETE ON SCHEMA::dbo TO db_auditor;
 GRANT SELECT ON SCHEMA::dbo TO db_developer;
 DENY INSERT, UPDATE, DELETE ON SCHEMA::dbo TO db_developer;
 
+GRANT SELECT ON dbo.[User] TO auth_service;

@@ -1,4 +1,4 @@
--- =============================================
+﻿-- =============================================
 -- RLS (Row-Level Security) Setup
 -- Automatically filters rows based on user context
 -- =============================================
@@ -15,15 +15,20 @@ WITH SCHEMABINDING
 AS
 RETURN SELECT 1 AS access_result
 WHERE 
-    
-    (IS_MEMBER('db_dba') = 1 OR IS_MEMBER('db_owner') = 1 OR IS_ROLEMEMBER('db_auditor') = 1 OR IS_ROLEMEMBER('db_developer') = 1)
+    -- Service accounts and privileged roles
+    (IS_ROLEMEMBER('db_dba') = 1 
+     OR IS_MEMBER('db_owner') = 1 
+     OR IS_ROLEMEMBER('db_auditor') = 1 
+     OR IS_ROLEMEMBER('db_developer') = 1 
+     OR IS_ROLEMEMBER('db_service_account') = 1)
     OR
-
     -- Admin (RoleID = 1) and Manager (RoleID = 3) can see all rows
-    (CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))
+    (SESSION_CONTEXT(N'role_id') IS NOT NULL 
+     AND CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))
     OR
     -- Customer (RoleID = 2) can only see their own data
-    (CAST(SESSION_CONTEXT(N'user_id') AS INT) = @UserID);
+    (SESSION_CONTEXT(N'user_id') IS NOT NULL 
+     AND CAST(SESSION_CONTEXT(N'user_id') AS INT) = @UserID);
 GO
 
 -- Step 2: Create security policy for Account table
@@ -57,19 +62,25 @@ AS
 RETURN
     SELECT 1 AS access_result
     WHERE
-        (IS_MEMBER('db_dba') = 1 OR IS_MEMBER('db_owner') = 1 OR IS_ROLEMEMBER('db_auditor') = 1 OR IS_ROLEMEMBER('db_developer') = 1)
+        -- Service accounts and privileged roles
+        (IS_ROLEMEMBER('db_dba') = 1 
+         OR IS_MEMBER('db_owner') = 1 
+         OR IS_ROLEMEMBER('db_auditor') = 1 
+         OR IS_ROLEMEMBER('db_developer') = 1 
+         OR IS_ROLEMEMBER('db_service_account') = 1)
         OR
-
         -- Admin/Manager see all
-        (CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))
+        (SESSION_CONTEXT(N'role_id') IS NOT NULL  -- ← ADD NULL CHECK
+         AND CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))
         OR
         -- Customer sees if they are sender or receiver
-        EXISTS (
+        (SESSION_CONTEXT(N'user_id') IS NOT NULL  -- ← ADD NULL CHECK
+         AND EXISTS (
             SELECT 1
             FROM dbo.Account a
             WHERE a.UserID = CAST(SESSION_CONTEXT(N'user_id') AS INT)
             AND (a.AccountID = @SenderAccountID OR a.AccountID = @ReceiverAccountID)
-        );
+        ));
 GO
 
 CREATE SECURITY POLICY TransactionSecurityPolicy
@@ -87,7 +98,13 @@ AS
 RETURN
     SELECT 1 AS access_result
     WHERE
-        (IS_MEMBER('db_dba') = 1 OR IS_MEMBER('db_owner') = 1 OR IS_ROLEMEMBER('db_auditor') = 1 OR IS_ROLEMEMBER('db_developer') = 1)
+        (IS_ROLEMEMBER('db_dba') = 1 
+         OR IS_MEMBER('db_owner') = 1 
+         OR IS_ROLEMEMBER('db_auditor') = 1 
+         OR IS_ROLEMEMBER('db_developer') = 1 
+         OR IS_ROLEMEMBER('db_service_account') = 1)
+        OR
+        USER_NAME() = 'auth_service'
         OR
         (CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))  -- Admin/Manager
         OR
@@ -109,7 +126,11 @@ AS
 RETURN
     SELECT 1 AS access_result
     WHERE
-        (IS_MEMBER('db_dba') = 1 OR IS_MEMBER('db_owner') = 1 OR IS_ROLEMEMBER('db_auditor') = 1 OR IS_ROLEMEMBER('db_developer') = 1)
+        (IS_ROLEMEMBER('db_dba') = 1 
+         OR IS_MEMBER('db_owner') = 1 
+         OR IS_ROLEMEMBER('db_auditor') = 1 
+         OR IS_ROLEMEMBER('db_developer') = 1 
+         OR IS_ROLEMEMBER('db_service_account') = 1)
         OR
 
         (CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))  -- Admin/Manager

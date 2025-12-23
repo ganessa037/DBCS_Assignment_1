@@ -337,9 +337,9 @@
                             <td class="px-4 py-3 text-gray-600 font-mono text-xs">
                                 {% if trans.Transaction_Type == 'TRANSFER' %}
                                     {% if trans.Transaction_Direction == 'Debit' %}
-                                        To: {{ trans.ReceiverAccount if trans.ReceiverAccount else 'N/A' }}
+                                        To: {{ trans.ReceiverName if trans.ReceiverName else 'N/A' }}
                                     {% else %}
-                                        From: {{ trans.SenderAccount if trans.SenderAccount else 'N/A' }}
+                                        From: {{ trans.SenderName if trans.SenderName else 'N/A' }}
                                     {% endif %}
                                 {% elif trans.Transaction_Type == 'DEPOSIT' %}
                                     Self Deposit
@@ -431,13 +431,15 @@
                     button.disabled = true;
                     button.textContent = 'Deleting...';
                     button.classList.add('opacity-50');
-                    
+                    const csrfToken = this.querySelector('input[name="csrf_token"]').value;
+
                     try {
                         const response = await fetch(`/delete_user/${userId}`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
-                            }
+                            },
+                            body: `csrf_token=${encodeURIComponent(csrfToken)}`
                         });
                         
                         if (response.ok || response.redirected) {

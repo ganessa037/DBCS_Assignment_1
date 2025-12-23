@@ -5,6 +5,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Deposit
     @UserID INT,
     @Amount DECIMAL(18,2),
     @ActorIP NVARCHAR(50)
+WITH EXECUTE AS 'transaction_service'
 AS
 BEGIN
     SET NOCOUNT ON;

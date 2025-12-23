@@ -2,7 +2,7 @@
 USE IronVaultDB;
 GO
 
-CREATE VIEW vw_Account AS
+CREATE OR ALTER VIEW vw_Account AS
 SELECT AccountID, UserID,
        CONVERT(varchar(20), DecryptByKey(Acc_Number_Encrypted)) AS Acc_Number,
        Acc_Balance
