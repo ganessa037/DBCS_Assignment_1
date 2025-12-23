@@ -107,6 +107,7 @@
                     <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
                 </div>
                 <form id="editUserForm" action="/update_role" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" id="edit_user_id" name="user_id">
                     
                     <div class="mb-4">
@@ -236,6 +237,7 @@
                         <td class="py-3 px-6 text-right font-bold text-green-600">RM {{ cust.Acc_Balance }}</td>
                         <td class="py-3 px-6 text-center">
                             <form class="delete-user-form" data-userid="{{ cust.UserID }}" data-username="{{ cust.User_Name }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs">
                                     Delete
                                 </button>
@@ -270,6 +272,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500 mb-4">
             <h2 class="text-xl font-bold text-gray-800 mb-4">💸 Make a Transfer</h2>
             <form action="/transfer" method="POST" class="flex gap-4 items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="w-1/2">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Receiver Account Number</label>
                     <input name="receiver_acc" type="text" placeholder="e.g. 100-3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
@@ -287,6 +290,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-green-500 mb-8 mt-4">
             <h2 class="text-xl font-bold text-gray-800 mb-4">🏧 ATM Deposit</h2>
             <form action="/deposit" method="POST" class="flex gap-4 items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="w-1/3">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Amount (RM)</label>
                     <input name="amount" type="number" step="0.01" placeholder="0.00" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
@@ -333,9 +337,9 @@
                             <td class="px-4 py-3 text-gray-600 font-mono text-xs">
                                 {% if trans.Transaction_Type == 'TRANSFER' %}
                                     {% if trans.Transaction_Direction == 'Debit' %}
-                                        To: {{ trans.ReceiverAccount if trans.ReceiverAccount else 'N/A' }}
+                                        To: {{ trans.ReceiverName if trans.ReceiverName else 'N/A' }}
                                     {% else %}
-                                        From: {{ trans.SenderAccount if trans.SenderAccount else 'N/A' }}
+                                        From: {{ trans.SenderName if trans.SenderName else 'N/A' }}
                                     {% endif %}
                                 {% elif trans.Transaction_Type == 'DEPOSIT' %}
                                     Self Deposit
@@ -427,13 +431,15 @@
                     button.disabled = true;
                     button.textContent = 'Deleting...';
                     button.classList.add('opacity-50');
-                    
+                    const csrfToken = this.querySelector('input[name="csrf_token"]').value;
+
                     try {
                         const response = await fetch(`/delete_user/${userId}`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
-                            }
+                            },
+                            body: `csrf_token=${encodeURIComponent(csrfToken)}`
                         });
                         
                         if (response.ok || response.redirected) {

@@ -9,23 +9,30 @@
 <body class="bg-slate-900 flex items-center justify-center h-screen">
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
+    {% if messages %}
+        <div class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50
+                    px-6 py-4 rounded-lg shadow-lg border max-w-md text-sm font-medium
+                    {% if messages[0][0] == 'error' %}
+                        bg-red-100 border-red-500 text-red-700
+                    {% elif messages[0][0] == 'success' %}
+                        bg-green-100 border-green-500 text-green-700
+                    {% else %}
+                        bg-blue-100 border-blue-500 text-blue-700
+                    {% endif %}">
+        <ul class="list-disc list-inside space-y-1 text-left">
             {% for category, message in messages %}
-            <div class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 
-                        {% if category == 'success' %}bg-green-100 border-green-500 text-green-700
-                        {% elif category == 'error' %}bg-red-100 border-red-500 text-red-700
-                        {% else %}bg-blue-100 border-blue-500 text-blue-700{% endif %}
-                        px-6 py-3 rounded-lg shadow-lg border max-w-md text-center text-sm font-medium">
-                {{ message }}
-            </div>
+            <li>{{ message }}</li>
             {% endfor %}
-        {% endif %}
+        </ul>
+        </div>
+    {% endif %}
     {% endwith %}
 
     <div class="bg-white p-8 rounded-lg shadow-2xl w-96 border-t-4 border-green-600">
         <h2 class="text-2xl font-bold text-center text-slate-800 mb-6">Open an Account</h2>
 
         <form action="/register" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
                 <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:border-green-500" 
