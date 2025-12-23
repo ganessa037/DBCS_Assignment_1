@@ -1,14 +1,13 @@
 -- =============================================
--- SQL Server Audit Setup
+-- Step 9: SQL Server Audit Setup
 -- Server-level audit logging for compliance
+-- ensure 'C:\SQLAudit\IronVault\' exists
 -- =============================================
--- Run this script in SSMS as Administrator
 
 USE master;
 GO
 
--- Step 1: Create Server Audit
--- This defines where audit logs will be stored
+-- Drop existing audit (if exists)
 IF EXISTS (SELECT * FROM sys.database_audit_specifications 
            WHERE name = 'IronVault_DB_Audit_Spec')
 BEGIN
@@ -18,10 +17,6 @@ BEGIN
 END
 GO
 
-USE master;
-GO
-
--- Drop existing audit (if exists)
 IF EXISTS (SELECT * FROM sys.server_audits WHERE name = 'IronVault_Server_Audit')
 BEGIN
     ALTER SERVER AUDIT IronVault_Server_Audit WITH (STATE = OFF);
@@ -29,8 +24,8 @@ BEGIN
 END
 GO
 
--- Create audit file location (adjust path as needed)
--- Make sure the folder exists and SQL Server has write permissions
+
+-- 1: Create Server Audit Specification
 CREATE SERVER AUDIT IronVault_Server_Audit
 TO FILE (
     FILEPATH = 'C:\SQLAudit\IronVault\',
@@ -64,37 +59,33 @@ ADD (SUCCESSFUL_LOGIN_GROUP)
 WITH (STATE = ON);
 GO
 
--- Step 2: Create Database Audit Specification
--- This defines what events to audit in IronVaultDB
+-- 2: Create Database Audit Specification
 USE IronVaultDB;
-GO
-
-IF EXISTS (SELECT * FROM sys.database_audit_specifications 
-           WHERE name = 'IronVault_DB_Audit_Spec')
-BEGIN
-    ALTER DATABASE AUDIT SPECIFICATION IronVault_DB_Audit_Spec WITH (STATE = OFF);
-    DROP DATABASE AUDIT SPECIFICATION IronVault_DB_Audit_Spec;
-END
 GO
 
 CREATE DATABASE AUDIT SPECIFICATION IronVault_DB_Audit_Spec
 FOR SERVER AUDIT IronVault_Server_Audit
+
+-- avoid using public, as it will introduce noise
 -- Application activity
 ADD (SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[User]        BY [db_app_service]),
 ADD (SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[Account]     BY [db_app_service]),
 ADD (SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[Transaction] BY [db_app_service]),
+
 -- Developer activity
 ADD (SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[User]    BY [db_developer]),
 ADD (SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[Account] BY [db_developer]),
+
 -- Audit log access (auditor only)
 ADD (SELECT ON OBJECT::[dbo].[Application_Audit_Log] BY [db_auditor]),
+
 -- Structural & permission changes
 ADD (DATABASE_PERMISSION_CHANGE_GROUP),
 ADD (SCHEMA_OBJECT_CHANGE_GROUP)
 WITH (STATE = ON);
 GO
 
--- Step 3: Verify Audit Status
+-- Verify Audit Status
 USE master;
 GO
 
@@ -130,8 +121,7 @@ PRINT 'Configured database access is now being logged.';
 PRINT 'Audit files location: C:\SQLAudit\IronVault\';
 PRINT '=============================================';
 
--- Step 4: View Audit Logs (Example query)
--- Note: Ensure the path exists and has audit files before running
+-- to execute
 USE master;
 GO
 

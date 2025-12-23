@@ -94,3 +94,4 @@ BEGIN
     END CATCH
 END
 GO
+GRANT EXECUTE ON dbo.sp_TransferFunds TO db_app_service;

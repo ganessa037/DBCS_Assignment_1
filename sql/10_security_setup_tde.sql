@@ -1,14 +1,16 @@
 -- =============================================
--- TDE (Transparent Data Encryption) Setup
+-- Step 10: TDE (Transparent Data Encryption) Setup
 -- Encrypts database files at rest
 -- =============================================
--- Run this script in SSMS as Administrator
--- Requires SQL Server Developer/Enterprise Edition
+-- Requires SQL Server Developer
 
+-- tde must be server-level
 USE master;
 GO
 
--- Step 1: Create Master Key (if not exists)
+-- 1. Create DMK
+-- previously created DMK is db-level
+-- TDE must be server-level
 IF NOT EXISTS (SELECT * FROM sys.symmetric_keys WHERE name = '##MS_DatabaseMasterKey##')
 BEGIN
     CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'Pa$$w0rd';
@@ -20,7 +22,7 @@ BEGIN
 END
 GO
 
--- Step 2: Create Certificate for TDE
+-- 2. Create Certificate for TDE
 USE master;
 GO
 
@@ -36,7 +38,24 @@ BEGIN
 END
 GO
 
--- Step 3: Enable TDE on IronVaultDB
+-- always backup DMK and CERT
+USE master;
+GO
+
+BACKUP MASTER KEY
+TO FILE = 'C:\SQLBackups\Master_DMK.bak'
+ENCRYPTION BY PASSWORD = 'Pa$$w0rd';
+GO
+
+BACKUP CERTIFICATE IronVault_TDE_Certificate
+TO FILE = 'C:\SQLBackups\IronVault_TDE_Cert.cer'
+WITH PRIVATE KEY (
+    FILE = 'C:\SQLBackups\IronVault_TDE_PrivateKey.pvk',
+    ENCRYPTION BY PASSWORD = 'Pa$$w0rd'
+);
+GO
+
+-- 3. Enable TDE on IronVaultDB
 USE IronVaultDB;
 GO
 
@@ -64,7 +83,7 @@ BEGIN
 END
 GO
 
--- Step 4: Verify TDE Status
+-- 4. Verify TDE Status
 SELECT 
     DB_NAME(database_id) AS DatabaseName,
     encryption_state,
@@ -90,20 +109,3 @@ PRINT 'TDE Setup Complete!';
 PRINT 'Database files are now encrypted at rest.';
 PRINT 'Backups will also be encrypted automatically.';
 PRINT '=============================================';
-
--- backup master key and certs
-USE master;
-GO
-
-BACKUP MASTER KEY
-TO FILE = 'C:\SQLBackups\Master_DMK.bak'
-ENCRYPTION BY PASSWORD = 'Pa$$w0rd';
-GO
-
-BACKUP CERTIFICATE IronVault_TDE_Certificate
-TO FILE = 'C:\SQLBackups\IronVault_TDE_Cert.cer'
-WITH PRIVATE KEY (
-    FILE = 'C:\SQLBackups\IronVault_TDE_PrivateKey.pvk',
-    ENCRYPTION BY PASSWORD = 'Pa$$w0rd'
-);
-GO

@@ -1,0 +1,5 @@
+-- ====================================================
+-- Step 7: Setup Procedures
+-- Use procedures instead of SQL statement in Flask
+-- Execute the procedures inside the Procedures folder
+-- ====================================================

@@ -60,3 +60,6 @@ BEGIN
     END CATCH
 END
 GO
+
+-- grant execute to flask
+GRANT EXECUTE ON dbo.sp_Deposit TO db_app_service;

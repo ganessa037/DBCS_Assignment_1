@@ -24,6 +24,10 @@ BEGIN
 
     CLOSE SYMMETRIC KEY IronVaultSymKey;
 END;
+GO
+
+-- grant permission
+GRANT EXECUTE ON dbo.sp_GetAccountsByUser TO db_app_service; 
 
 -- to execute
 EXEC dbo.sp_GetAccountsByUser 6;

@@ -31,3 +31,4 @@ BEGIN
     VALUES (@ActorUserID, @ActorUserName, @ActorRoleName, 'DELETE_USER', 'Success', CONCAT('Deleted User ID ', @UserID), @ActorIP);
 END
 GO
+

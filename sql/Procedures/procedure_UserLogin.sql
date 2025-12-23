@@ -34,6 +34,8 @@ BEGIN
     VALUES
         (@UserID, @UserName, @RoleName, 'LOGIN', 'Success', 'User logged in successfully', @IP_Address);
 END;
+GO
+GRANT EXECUTE ON dbo.sp_UserLogin TO db_app_service;
 
 -- to execute
 EXEC sp_UserLogin 1, '169.7.205.27';

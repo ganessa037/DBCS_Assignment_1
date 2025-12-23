@@ -1,14 +1,21 @@
 ﻿-- =============================================
--- RLS (Row-Level Security) Setup
+-- Step 8: RLS (Row-Level Security) Setup
 -- Automatically filters rows based on user context
 -- =============================================
--- Run this script in SSMS
 
 USE IronVaultDB;
 GO
 
--- Step 1: Create a function to check if user can access a row
--- This function will be used by the security policy
+-- note: run this to drop existing policies
+-- change the policy name before execute
+IF EXISTS (SELECT * FROM sys.security_policies WHERE name = 'AccountSecurityPolicy')
+BEGIN
+    DROP SECURITY POLICY AccountSecurityPolicy;
+    PRINT 'Existing AccountSecurityPolicy dropped.';
+END
+GO
+
+-- 1. Account table
 CREATE OR ALTER FUNCTION dbo.fn_security_predicate_user_account(@UserID AS INT)
 RETURNS TABLE
 WITH SCHEMABINDING
@@ -31,30 +38,16 @@ WHERE
      AND CAST(SESSION_CONTEXT(N'user_id') AS INT) = @UserID);
 GO
 
--- Step 2: Create security policy for Account table
--- This automatically filters rows based on the predicate function
-IF EXISTS (SELECT * FROM sys.security_policies WHERE name = 'AccountSecurityPolicy')
-BEGIN
-    DROP SECURITY POLICY AccountSecurityPolicy;
-    PRINT 'Existing AccountSecurityPolicy dropped.';
-END
-GO
-
+-- bind the function with the policy
 CREATE SECURITY POLICY AccountSecurityPolicy
 ADD FILTER PREDICATE dbo.fn_security_predicate_user_account(UserID)
 ON dbo.Account
 WITH (STATE = ON);
 GO
 
--- Step 3: Create security policy for Transaction table
--- Customers can only see transactions involving their accounts
-IF EXISTS (SELECT * FROM sys.security_policies WHERE name = 'TransactionSecurityPolicy')
-BEGIN
-    DROP SECURITY POLICY TransactionSecurityPolicy;
-    PRINT 'Existing TransactionSecurityPolicy dropped.';
-END
-GO
 
+-- 2. Transaction table
+-- Customers can only see transactions involving their accounts
 CREATE OR ALTER FUNCTION dbo.fn_security_predicate_user_transaction(@SenderAccountID INT, @ReceiverAccountID INT)
 RETURNS TABLE
 WITH SCHEMABINDING
@@ -70,11 +63,11 @@ RETURN
          OR IS_ROLEMEMBER('db_service_account') = 1)
         OR
         -- Admin/Manager see all
-        (SESSION_CONTEXT(N'role_id') IS NOT NULL  -- ← ADD NULL CHECK
+        (SESSION_CONTEXT(N'role_id') IS NOT NULL
          AND CAST(SESSION_CONTEXT(N'role_id') AS INT) IN (1, 3))
         OR
         -- Customer sees if they are sender or receiver
-        (SESSION_CONTEXT(N'user_id') IS NOT NULL  -- ← ADD NULL CHECK
+        (SESSION_CONTEXT(N'user_id') IS NOT NULL
          AND EXISTS (
             SELECT 1
             FROM dbo.Account a
@@ -82,15 +75,14 @@ RETURN
             AND (a.AccountID = @SenderAccountID OR a.AccountID = @ReceiverAccountID)
         ));
 GO
-
+-- bind with security policy
 CREATE SECURITY POLICY TransactionSecurityPolicy
 ADD FILTER PREDICATE dbo.fn_security_predicate_user_transaction(SenderAccountID, ReceiverAccountID)
 ON dbo.[Transaction]
 WITH (STATE = ON);
 GO
 
--- Create security policy for User table
--- Customers can only see their informations, admin see all
+-- 3. User table: customers can only see their informations, admin see all
 CREATE OR ALTER FUNCTION dbo.fn_security_predicate_user(@UserID INT)
 RETURNS TABLE
 WITH SCHEMABINDING
@@ -117,8 +109,7 @@ ON dbo.[User]
 WITH (STATE = ON);
 GO
 
--- Create security policy for application_log table
--- Customers can only see their informations, admin/manager see all
+-- 4. Application Audit Log Table
 CREATE OR ALTER FUNCTION dbo.fn_security_predicate_audit_log(@UserID INT)
 RETURNS TABLE
 WITH SCHEMABINDING
@@ -144,7 +135,14 @@ ON dbo.Application_Audit_Log
 WITH (STATE = ON);
 GO
 
--- Step 4: Verify RLS is enabled
+-- grant to user
+GRANT SELECT ON dbo.fn_security_predicate_user_account TO db_app_service;
+GRANT SELECT ON dbo.fn_security_predicate_user_transaction TO db_app_service;
+GRANT SELECT ON dbo.fn_security_predicate_user TO db_app_service;
+GRANT SELECT ON dbo.fn_security_predicate_audit_log TO db_app_service;
+GRANT SELECT ON OBJECT::dbo.vw_Account TO db_app_service;
+
+-- Verify RLS is enabled
 SELECT 
     name AS PolicyName,
     is_enabled,
@@ -177,9 +175,3 @@ SELECT * FROM dbo.[Transaction];
 -- if done, clear it
 EXEC sp_set_session_context @key = N'user_id', @value = NULL;
 EXEC sp_set_session_context @key = N'role_id', @value = NULL;
-
--- verify current role
-SELECT 
-    'Current User' AS Info,
-    USER_NAME() AS DatabaseUser,
-    SYSTEM_USER AS LoginName; 

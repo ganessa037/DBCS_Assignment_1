@@ -21,23 +21,8 @@ BEGIN
 END;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.sp_GetUserById
-    @UserID INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        u.UserID,
-        u.User_Name,
-        r.Role_Name,
-        r.RoleID
-    FROM [User] u
-    LEFT JOIN [Role] r ON u.RoleID = r.RoleID
-    WHERE u.UserID = @UserID;
-END;
-GO
+-- grant permission
+GRANT EXECUTE ON dbo.sp_GetUserByEmail TO db_app_service;
 
 -- to execute
 EXEC dbo.sp_GetUserByEmail 'natasha@gmail.com'
-EXEC dbo.sp_GetUserById 1

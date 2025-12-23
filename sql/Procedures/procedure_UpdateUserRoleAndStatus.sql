@@ -52,3 +52,4 @@ BEGIN
     END
 END
 GO
+GRANT EXECUTE ON dbo.sp_UpdateUserRoleAndStatus TO db_app_service;

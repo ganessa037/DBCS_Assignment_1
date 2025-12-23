@@ -78,6 +78,9 @@ BEGIN
 END;
 GO
 
+-- grant to flask
+GRANT EXECUTE ON dbo.sp_CreateAccount TO db_app_service;
+
 -- to execute
 EXEC dbo.sp_CreateAccount
     @UserName = 'Jane Doe',

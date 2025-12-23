@@ -16,5 +16,7 @@ BEGIN
     CLOSE SYMMETRIC KEY IronVaultSymKey;
 END;
 
+GRANT EXECUTE ON dbo.sp_GetUserEmail TO db_app_service;
+
 -- to exec
 EXEC dbo.sp_GetUserEmail 1;
