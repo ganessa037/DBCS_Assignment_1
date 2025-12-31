@@ -8,6 +8,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_DeleteUser
     @ActorUserName NVARCHAR(255),
     @ActorRoleName NVARCHAR(100),
     @ActorIP NVARCHAR(50)
+WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -31,4 +32,4 @@ BEGIN
     VALUES (@ActorUserID, @ActorUserName, @ActorRoleName, 'DELETE_USER', 'Success', CONCAT('Deleted User ID ', @UserID), @ActorIP);
 END
 GO
-
+GRANT EXECUTE ON dbo.sp_DeleteUser TO db_app_service;

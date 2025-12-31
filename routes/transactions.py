@@ -89,13 +89,6 @@ def debug_balance_check():
     cursor = conn.cursor()
     
     try:
-        # Query 1: Direct query (what dashboard might use)
-        cursor.execute("""
-            SELECT AccountID, CAST(Acc_Balance AS DECIMAL(18,2)) AS Balance
-            FROM Account 
-            WHERE UserID = ?
-        """, (session['user_id'],))
-        direct_result = cursor.fetchone()
         
         # Query 2: Check what SESSION_CONTEXT sees
         cursor.execute("""
@@ -105,18 +98,11 @@ def debug_balance_check():
         """)
         context = cursor.fetchone()
         
-        # Query 3: Check as transaction_service would see it
-        cursor.execute("SELECT COUNT(*) FROM Account WHERE UserID = ?", (session['user_id'],))
-        row_count = cursor.fetchone()[0]
-        
         return jsonify({
             "flask_session_user_id": session.get('user_id'),
             "flask_session_role_id": session.get('role_id'),
             "db_context_user_id": context[0] if context else None,
             "db_context_role_id": context[1] if context else None,
-            "account_id": direct_result[0] if direct_result else None,
-            "balance": float(direct_result[1]) if direct_result else 0.00,
-            "accounts_visible": row_count,
             "rls_working": context[0] == session.get('user_id')
         })
         

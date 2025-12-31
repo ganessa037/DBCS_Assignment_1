@@ -39,13 +39,3 @@ GRANT UNMASK ON OBJECT::dbo.[Transaction](Amount) TO db_auditor;
 GRANT SELECT ON SCHEMA::dbo TO db_developer;
 DENY INSERT, UPDATE, DELETE ON SCHEMA::dbo TO db_developer;
 GRANT UNMASK TO db_developer;
-
-
-
--- least privilege
-GRANT SELECT, INSERT, UPDATE ON dbo.[User] TO db_app_service;
-GRANT SELECT, INSERT, UPDATE ON dbo.Account TO db_app_service;
-GRANT SELECT, INSERT ON dbo.[Transaction] TO db_app_service;
-GRANT SELECT, INSERT ON dbo.Application_Audit_Log TO db_app_service;
-GRANT SELECT ON dbo.[Role] TO db_app_service;
-

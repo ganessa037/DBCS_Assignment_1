@@ -9,6 +9,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_UpdateUserRoleAndStatus
     @ActorUserName NVARCHAR(255),
     @ActorRoleName NVARCHAR(100),
     @ActorIP NVARCHAR(50)
+WITH EXECUTE AS OWNER
 AS
 BEGIN
     SET NOCOUNT ON;

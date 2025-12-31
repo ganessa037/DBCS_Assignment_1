@@ -6,7 +6,7 @@ from utils.security import get_client_ip
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/delete_user/<int:user_id>', methods=['POST'])
-@role_required(1)
+@role_required(3)
 def delete_user(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -36,6 +36,7 @@ def delete_user(user_id):
 
     except Exception as e:
         conn.rollback()
+        print(e)
         flash("Failed to delete user. Please try again.", "error")
     finally:
         conn.close()
@@ -43,7 +44,7 @@ def delete_user(user_id):
     return redirect(url_for('main.dashboard'))
 
 @admin_bp.route('/update_role', methods=['POST'])
-@role_required(3)
+@role_required(1)
 def update_role():
     target_user_id = request.form.get('user_id')
     new_role_id = request.form.get('new_role')
