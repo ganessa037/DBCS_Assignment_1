@@ -45,4 +45,7 @@ if __name__ == '__main__':
     env = os.getenv('FLASK_ENV', 'development')
     if env not in ['development', 'production'] : env = 'development'
     app = create_app(env)
-    app.run(debug=(env=='development'), port=5000)
+    #app.run(debug=(env=='development'), port=5000)
+    
+    # for docker
+    app.run(host='0.0.0.0', debug=(env=='development'), port=5000)
