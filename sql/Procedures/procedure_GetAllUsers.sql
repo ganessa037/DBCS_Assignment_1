@@ -1,16 +1,14 @@
 USE IronVaultDB
 GO
 
-
-CREATE OR ALTER PROCEDURE dbo.sp_GetAllUsers
-WITH EXECUTE AS 'transaction_service'
+ALTER PROCEDURE dbo.sp_GetAllUsers
 AS
 BEGIN
     SET NOCOUNT ON;
     
     -- Open the symmetric key for decryption
     OPEN SYMMETRIC KEY IronVaultSymKey
-    DECRYPTION BY CERTIFICATE IronVaultCert;
+    DECRYPTION BY PASSWORD = 'Pa$$w0rd';
     
     SELECT 
         u.UserID,

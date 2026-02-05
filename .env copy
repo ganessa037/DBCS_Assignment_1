@@ -1,6 +1,0 @@
-SECRET_KEY=super_secret_key_ironvault
-SERVER_NAME=localhost
-DATABASE_NAME=IronVaultDB
-DB_USERNAME=ironvault_app_login
-DB_PASSWORD=Pa$$w0rd
-FLASK_ENV='development'

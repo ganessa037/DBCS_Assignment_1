@@ -1,12 +1,12 @@
 USE IronVaultDB
 GO
 
-CREATE PROCEDURE dbo.sp_GetUserEmail
+ALTER PROCEDURE dbo.sp_GetUserEmail
     @UserID INT
 AS
 BEGIN
     OPEN SYMMETRIC KEY IronVaultSymKey
-    DECRYPTION BY CERTIFICATE IronVaultCert;
+    DECRYPTION BY PASSWORD = 'Pa$$w0rd';
 
     SELECT
         CONVERT(VARCHAR(255), DecryptByKey(User_Email_Encrypted)) AS User_Email

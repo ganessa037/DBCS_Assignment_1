@@ -3,7 +3,6 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_GetUserByEmail
     @Email VARCHAR(320)
-WITH EXECUTE AS 'auth_service'
 AS
 BEGIN
     SET NOCOUNT ON;

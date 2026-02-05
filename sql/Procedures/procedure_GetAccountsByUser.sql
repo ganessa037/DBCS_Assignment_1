@@ -2,15 +2,14 @@ USE IronVaultDB;
 GO
 
 -- reading account
-CREATE OR ALTER PROCEDURE dbo.sp_GetAccountsByUser
+ALTER PROCEDURE dbo.sp_GetAccountsByUser
     @UserID INT
-WITH EXECUTE AS 'transaction_service'
 AS
 BEGIN
     SET NOCOUNT ON;
 
     OPEN SYMMETRIC KEY IronVaultSymKey
-    DECRYPTION BY CERTIFICATE IronVaultCert;
+    DECRYPTION BY PASSWORD = 'Pa$$w0rd';
 
     SELECT 
         a.AccountID,

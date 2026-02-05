@@ -27,7 +27,7 @@ BEGIN
         
         -- Open symmetric key for encryption
         OPEN SYMMETRIC KEY IronVaultSymKey
-        DECRYPTION BY CERTIFICATE IronVaultCert;
+        DECRYPTION BY PASSWORD = 'Pa$$w0rd';
         
         -- Encrypt the email
         DECLARE @EncryptedEmail VARBINARY(MAX) = EncryptByKey(

@@ -1,11 +1,11 @@
 USE IronVaultDB;
 GO
-CREATE OR ALTER PROCEDURE dbo.sp_TransferFunds
+
+ALTER PROCEDURE dbo.sp_TransferFunds
     @SenderUserID INT,
     @ReceiverAccNumber NVARCHAR(50),
     @Amount DECIMAL(18,2),
     @ActorIP NVARCHAR(50)
-WITH EXECUTE AS 'transaction_service'
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -16,7 +16,7 @@ BEGIN
     
     BEGIN TRY
         OPEN SYMMETRIC KEY IronVaultSymKey
-        DECRYPTION BY CERTIFICATE IronVaultCert;
+        DECRYPTION BY PASSWORD = 'Pa$$w0rd';
         
         -- Get sender account and balance
         SELECT TOP 1 
@@ -42,7 +42,7 @@ BEGIN
             @ReceiverAccountID = AccountID, 
             @ReceiverUserID = UserID
         FROM Account
-        WHERE CONVERT(VARCHAR(50), DECRYPTBYKEY(Acc_Number_Encrypted)) = @ReceiverAccNumber;
+        WHERE CONVERT(NVARCHAR(50), DECRYPTBYKEY(Acc_Number_Encrypted)) = @ReceiverAccNumber;
         
         CLOSE SYMMETRIC KEY IronVaultSymKey;
         
@@ -95,3 +95,17 @@ BEGIN
 END
 GO
 GRANT EXECUTE ON dbo.sp_TransferFunds TO db_app_service;
+
+OPEN SYMMETRIC KEY IronVaultSymKey
+DECRYPTION BY PASSWORD = 'Pa$$w0rd';
+
+SELECT AccountID,
+       CONVERT(NVARCHAR(50), DECRYPTBYKEY(Acc_Number_Encrypted)) AS DecryptedAccountNumber
+FROM Account
+CLOSE SYMMETRIC KEY IronVaultSymKey;
+
+SELECT * FROM dbo.[User]
+
+UPDATE dbo.[User]
+SET RoleID = 1
+WHERE UserID = 22

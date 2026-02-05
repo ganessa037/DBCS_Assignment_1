@@ -3,7 +3,6 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_GetAuditLogs
     @Top INT = 50
-WITH EXECUTE AS 'transaction_service'  -- This user has UNMASK permission
 AS
 BEGIN
     SET NOCOUNT ON;
